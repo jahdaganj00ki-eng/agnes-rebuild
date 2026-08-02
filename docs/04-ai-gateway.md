@@ -8,11 +8,24 @@ generation. This replaces implementing your own LLM backend.
 
 | Requirement | Details |
 |---|---|
-| API key | Create in the Agnes platform console; sent as `Authorization: Bearer <key>` |
-| Base URL (OpenAI-compatible) | `https://apihub.agnes-ai.com/v1` |
-| Image API root | `https://apihub.agnes-ai.com` |
-| Rate limits | Tiered by account type (free / enterprise / token plan) — check the current catalog before production planning; values change over time |
-| Note | The catalog repo contains **docs + examples only** — no model weights or code to vendor |
+| API key | Register at `https://platform.agnes-ai.com/`, apply for a key, then send it as `Authorization: Bearer <key>` |
+| Official docs | `https://agnes-ai.com/doc/overview` |
+| Env conventions | `AGNES_API_KEY` (secret), `AGNES_BASE_URL` (selected route, see §1.1) |
+| Note | The docs repo contains **docs + examples only** — no model weights or code to vendor; limits and availability may change, confirm production values in the platform console |
+
+### 1.1 Regional endpoint routing
+
+| Service route | Base URL | When to use |
+|---|---|---|
+| International (primary) | `https://apihub.agnes-ai.com/v1` | Default |
+| International (alternate) | `https://apihub.agnes-ai.cn/v1` | Only when the primary route has a network/DNS/TLS/timeout failure |
+| China service | `https://api.agnes-ai.cn/v1` | China service accounts |
+
+Routing rules:
+* Ensure the URL ends in `/v1` and clients do **not** append `/v1` a second time.
+* Test the alternate international route with one minimal request; keep the reachable route in `AGNES_BASE_URL`.
+* **Never** switch routes in response to `400/401/403/422/429` — those are request/key/permission/quota issues of the *selected* service, not routing problems.
+* Image API root stays the route's host without `/v1` suffix for non-OpenAI endpoints.
 
 ## 2. Model catalog (public reference, check for updates)
 
@@ -65,9 +78,10 @@ data class ChatRequest(val model: String = "agnes-2.5-flash",
 ```
 
 ```kotlin
-// Retrofit interface in YOUR backend service only (never in the Android app)
+// Retrofit interface in YOUR backend service only (never in the Android app).
+// Backend config: apiKey from env AGNES_API_KEY, baseUrl from env AGNES_BASE_URL
+// (default "https://apihub.agnes-ai.com/v1", see §1.1 routing).
 interface AgnesGateway {
-    @Headers("Authorization: Bearer \$AGNES_API_KEY")
     @Streaming @POST("/v1/chat/completions") suspend fun chat(@Body r: ChatRequest): ResponseBody
     @POST("/v1/images/generations") suspend fun images(@Body r: ImageRequest): ImageResponse
     @POST("/v1/videos") suspend fun createVideo(@Body r: VideoRequest): VideoTask
@@ -78,10 +92,14 @@ interface AgnesGateway {
 The backend converts the SSE delta stream into the app's design-system block protocol (see
 README §5.2) and injects `subscription_level` checks before every generation call.
 
-## 6. Error & quota handling
+## 6. Error, retry & quota handling
 
-* Map gateway error codes (see `docs/ERROR_CODES.md` in the catalog repo) onto the app's
-  `GlobalErrorConfig` pattern; surface quota exhaustion as the existing
-  `PptUpgradeGateCheckResponse` upgrade-gate flow.
-* Honor per-tier RPM limits: retry with backoff only for 5xx, never for quota errors.
+* **Retry with exponential backoff only for:** `408, 429, 500, 502, 503, 504, 520, 522, 524`.
+  Everything else (`400/401/403/422`) means fix the request, key or account — do not retry and
+  do not switch regional routes (§1.1).
+* Map gateway error codes onto the app's `GlobalErrorConfig` pattern; surface quota exhaustion
+  as the existing `PptUpgradeGateCheckResponse` upgrade-gate flow.
+* Honor per-tier RPM limits from the live catalog; treat them as changeable reference values.
 * Video: poll with `video_id`; treat >few-minutes queue time as failure → user retry.
+* Debugging/bug reports collect: model, endpoint, client version, sanitized request body, status
+  code + response body, request ID/timestamp — **never** API keys or user data.
