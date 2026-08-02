@@ -58,8 +58,12 @@ MILESTONES (M0–M11; each compiles + passes its smoke gate before proceeding)
      fixture streams (incl. the Edit-Image chain replay).
  M3  ⭐ GATEWAY SIDECAR (core of this task):
      3.1 config: env AGNES_API_KEY/AGNES_BASE_URL, route table (intl/intl-alt/cn), route rules
-     3.2 OpenAI-compatible client: chat/completions (SSE), images/generations, videos + poller
-         (video_id), with retry matrix 408/429/5xx/520/522/524 + jitter
+     3.2 OpenAI-compatible client implementing the FULL request contracts of docs/04 §2.1–2.3:
+         chat/completions (SSE; params incl. tools/tool_choice, chat_template_kwargs, thinking)
+         + /v1/responses for 2.5-flash · images/generations with tiers size 1K-4K + ratio list,
+         image[] multi-input, and extra_body.response_format (never top-level) · videos with
+         num_frames 8n+1 ≤441, tier normalization 480/720/1080, video_id-only polling (~5 s),
+         retry matrix 408/429/5xx/520/522/524 + jitter
      3.3 stream converter: gateway deltas → block protocol (thinking/skill_load/tool_call/…)
      3.4 agent loop + skill store (sidecar-local SKILL.md dirs):
          skills/image-generation (+reference-image doc), skills/image-prompt-craft,

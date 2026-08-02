@@ -31,12 +31,49 @@ Routing rules:
 
 | Capability | Model | Endpoint |
 |---|---|---|
-| Chat, streaming, tools, vision input (flagship) | `agnes-2.5-flash` | `POST /v1/chat/completions` (512K ctx / 65.5K max output, current generation) |
-| Chat, coding, agents, vision | `agnes-2.0-flash` | `POST /v1/chat/completions` (256K ctx / 64K max output after the 2026-06 rollback from the temporary 1M window) |
-| Fast low-latency chat, titles, follow-ups | `agnes-1.5-flash` | `POST /v1/chat/completions` (~256K ctx / 64K max output) |
+| Chat, streaming, tools, vision input (flagship) | `agnes-2.5-flash` | `POST /v1/chat/completions` (512K ctx / 65.5K max output) **plus `POST /v1/responses`** (Responses API, documented for 2.5-flash) |
+| Chat, coding, agents, vision | `agnes-2.0-flash` | `POST /v1/chat/completions` (256K ctx / 64K — after 2026-06 rollback from temporary 1M window) |
+| Fast low-latency chat, titles, follow-ups | `agnes-1.5-flash` | `POST /v1/chat/completions` (~256K ctx / 64K) |
 | Text→image / edit | `agnes-image-2.0-flash` | `POST /v1/images/generations` |
-| High-detail image gen | `agnes-image-2.1-flash` | `POST /v1/images/generations` |
-| Text→video, image→video, keyframes (async) | `agnes-video-v2.0` | `POST /v1/videos`; poll result via `GET https://apihub.agnes-ai.com/agnesapi?video_id=<id>` (use `video_id`, not the legacy `task_id` flow) |
+| High-detail image gen (recommended) | `agnes-image-2.1-flash` | `POST /v1/images/generations` |
+| Text→video, image→video, keyframes (async) | `agnes-video-v2.0` | `POST /v1/videos`; poll via `GET https://apihub.agnes-ai.com/agnesapi?video_id=<id>` (never the legacy `/v1/videos/{task_id}` flow) |
+
+> Doc pitfall: the vendor FAQ once claimed `agnes-2.0-flash`=512K ctx; catalog+changelog say 256K/64K. Trust catalog/console. Migration 2.0→2.5 = swap the model string only.
+
+### 2.1 Chat request contract (`/v1/chat/completions`)
+Params: `model` ✅, `messages` ✅ (content text **or** blocks `text`/`image_url`), `temperature`,
+`top_p`, `max_tokens`, `stream`, `tools`+`tool_choice` (OpenAI function-calling),
+`chat_template_kwargs` (extension field incl. thinking mode for OpenAI-style requests),
+`thinking` (Anthropic-compatible requests). Vision input = **publicly reachable image URL only**
+(content block `image_url`). Auth header `Authorization: Bearer $AGNES_API_KEY`, body
+`application/json`.
+
+### 2.2 Image request contract (`/v1/images/generations`)
+| Param | Req | Notes |
+|---|---|---|
+| `model` | ✅ | `agnes-image-2.1-flash` (quality) / `2.0` (speed) |
+| `prompt` | ✅ | description/editing instruction |
+| `size` | ✅ | tier values **`1K`/`2K`/`3K`/`4K`** recommended; legacy exact sizes accepted, normalized |
+| `ratio` | – | `1:1` default; `3:4` `4:3` `16:9` `9:16` `2:3` `3:2` `21:9` |
+| `image[]` | for img2img | public URL(s) or data-URI base64; multiple = multi-image composition |
+| `return_base64` | – | top-level base64 output for text→image |
+| `extra_body.response_format` | – | `"url"` or `"b64_json"` — **MUST live in `extra_body`, not top-level (else 400)** |
+
+Pitfalls: no separate img2img tag param; non-native sizes map to tiers (e.g. 1920×1080 →
+`2K`+`16:9` ≈ 2624×1472). Dimension reference: 1:1 = 1024²/2048²/4096² (1K/2K/4K) ·
+16:9 = 1312×736 → 2624×1472 → 5248×2944 · 9:16 mirrored · 21:9 = 1568×672 → 6272×2688.
+Image RPM is **resolution-dependent** (§6.2).
+
+### 2.3 Video request contract (`/v1/videos`, async) + polling
+Params: `model`=`agnes-video-v2.0` ✅, `prompt` ✅, `image` (single public URL for image→video),
+`mode` (`ti2vid`, `keyframes`; keyframes via `extra_body.image` URL-array + `extra_body.mode`),
+`height`/`width` (defaults 768×1152; normalized to **480p/720p/1080p** tiers — trust response
+fields `size`, `seconds`, `metadata.size_mapping`, not request values), `num_frames` (**≤441 and
+8n+1**, e.g. 121 ≈ 5 s @24 fps), `frame_rate` 1–60, `num_inference_steps`, `seed`,
+`negative_prompt`.
+Create-response returns BOTH `task_id` and **`video_id`** plus `status/progress/seconds/size`.
+**Poll with `video_id` only**, interval ≈5 s (avoid tight loops → 429); terminal statuses
+`succeeded/success/completed/done` vs `failed/error/cancelled`.
 
 ## 3. Architecture (mandatory: proxy through your own backend)
 
@@ -94,26 +131,29 @@ README §5.2) and injects `subscription_level` checks before every generation ca
 ## 6. Limits, quotas & error handling (catalog reference values)
 
 ### 6.1 Access types & quota accounting
-Three key types, each with its **own limit pool** (a user may hold several keys):
-free/default, enterprise-verified, Token Plan. Quota units: text = per request,
-image = per generated image, video = per second of generated video.
+Three key types, each with its **own limit pool**: free/default, enterprise-verified, Token Plan.
+Rules: limits bind to the **key TYPE** — several keys of one type share ONE pool (no increase);
+you may hold several types in parallel (separate pools); enterprise raises base RPM but grants
+**no** Token-Plan quota (subscription required for that).
+Quota units: text = per request, image = per generated image, video = per second of video.
+Current vendor price note: images $0/img, video $0/s (limited via quotas; verify in console).
 
 ### 6.2 RPM reference values (verify in platform console before production)
 | Traffic | Free (public / actual) | Enterprise | Token Plan |
 |---|---|---|---|
 | Text chat | 30 / 20 RPM | 60 / 40 RPM | 1000 / 1000 RPM |
-| Image 1K | 30 / 20 | 60 / 40 | per plan |
-| Image 2K | 20 / 10 | 40 / 20 | per plan |
-| Image 3K | 2 / 1 | 2 / 1 | per plan |
-| Image 4K | 1 / 1 | 1 / 1 | per plan |
+| Image 1K | 30 / 20 | 60 / 40 | 100 (actual) |
+| Image 2K | 20 / 10 | 40 / 20 | 80 (actual) |
+| Image 3K | 2 / 1 | 2 / 1 | 1 |
+| Image 4K | 1 / 1 | 1 / 1 | 1 |
 | Video (2026-06-28 update) | 2 / 1 | 2 / 2 | 6 / 5 |
 
 ### 6.3 Token Plan subscription quotas
-| Plan | Text (`agnes-2.0-flash` class) | Images | Video |
-|---|---|---|---|
-| Starter | 1,500 req / 5h · 15,000 req / week | 4,000 img / day | 500 s / day |
-| Plus | 7,500 req / 5h · 75,000 req / week | 4,000 img / day | 500 s / day |
-| Pro | 30,000 req / 5h · 300,000 req / week | 4,000 img / day | 500 s / day |
+| Plan | Price (doc ref) | Text (`agnes-2.0-flash` class) | Images | Video |
+|---|---|---|---|---|
+| Starter | $4 | 1,500 req / 5h · 15,000 req / week | 4,000 img / day | 500 s / day |
+| Plus | $10 | 7,500 req / 5h · 75,000 req / week | 4,000 img / day | 500 s / day |
+| Pro | $50 | 30,000 req / 5h · 300,000 req / week | 4,000 img / day | 500 s / day |
 
 Rebuild implication: your backend enforces the app's own plan mapping onto these pools;
 surface remaining quota via the app's `QuotaLog` / credits endpoints (README §5.8).
