@@ -275,6 +275,8 @@ referral (invitation) center, account deletion. H5 pages: help/legal via WebView
   `agnes-video-v2.0` (`/v1/videos`; poll `GET /agnesapi?video_id=<id>`).
 * Retry w/ backoff only on `408,429,500–504,520,522,524`. Rules in `docs/04-ai-gateway.md`;
   never route-hop on 4xx; don't double-append `/v1`.
+* **Limits/quotas** (access types free/enterprise/token-plan; resolution-dependent image RPM;
+  video 500 s/day plan quotas; full tables + error-code→UX matrix): `docs/04-ai-gateway.md` §6.
 
 ## 9. Local persistence & caches
 
