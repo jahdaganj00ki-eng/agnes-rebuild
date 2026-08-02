@@ -1,63 +1,37 @@
-# API Surface (rebuild contract)
+# API Surface — Real Binding Map (extracted interface data)
 
-All endpoints are REST/JSON behind the per-environment base URLs (see README §2) and use the
-uniform envelope `BaseResponse<T>` (or `BaseNoResponse` for void calls). Group them into these
-Retrofit interfaces — names mirror the model DTOs in the package map:
+All endpoints sit behind the per-environment base URLs (README §2) and return the envelope
+`BaseResponse<T>` / `BaseNoResponse` (code/message/data). Method+path pairs below are the real
+bindings; DTO names refer to the package map (README §3). **The authoritative, complete map
+lives in README §5** — this file adds payload wiring notes.
 
-## AuthApi
-- `POST /auth/login` — e-mail/password (`EmailAndPassword`), phone (`PhoneAndPassword`)
-- `POST /auth/google` — Google token exchange (`GoogleToken` → `GoogleLoginResult`)
-- `POST /auth/register/email` (`RegisterByEmailRequest`)
-- `POST /auth/bind/email` (`BindEmailRequest`), `POST /auth/bind/phone` (`BindPhoneRequest`)
-- `GET /auth/me` → `AuthMeUserDto` · `POST /user/username` (`ChangeUserName`)
-- `GET /config/login` → `LoginConfig` · `GET /config/feature` → `FeatureConfig`
+## Retrofit interfaces to generate (one per group)
 
-## ChatApi
-> Every generative endpoint below is backed server-side by the **Agnes AI gateway** —
-> see the feature→model mapping in **docs/04-ai-gateway.md**.
-- Conversation CRUD: list / detail / history / search / delete
-  (`ConversationList`, `ConversationDetail`, `ConversationHistory`, `ConversationSearchRes`)
-- `POST /chat/stream` (`ChatStreamRequestBody`) — **streamed** completion (chunked/SSE)
-- `POST /chat/resume-stream` (`ChatResumeStreamRequestBody`)
-- `POST /chat/hitl/resume` (`ChatHitlResumeRequestBody`) — human-in-the-loop continue
-- `POST /chat/regenerate` (`ChatRegenerateRequestBody`)
-- `POST /conversation/title` (`ConversationTitleSummary`)
-- Preset replies & follow-ups: `PresetRepliesPayload`, `FollowUpQuestions`
+| Interface | Base prefix | Endpoints | Key DTOs |
+|---|---|---|---|
+| `AuthApi` | `/api/auth /api/v1/user` | token_by_email, me, clear_firebase_token, login, register, refresh-token, code/send, code/verify, bind_email, bind_phone, reset_password, timezone, profile (GET v2 / PUT v1), account DELETE | AuthEmail/AuthPhone/AuthGoogle, RegisterByEmailRequest, BindEmail/PhoneRequest, AuthMeUserDto, OwnerProfileResponse |
+| `ChatApi` | `/api/v1/agnes` | chat/stream (+cancel/resume/regenerate/hitl-resume), conversations CRUD, history, search, running, title-summary, agnes-chats, follow-up-questions, mode_support_models, daily-hot-topics, recommend-topics(+refresh), ai_voice/tts-toggle, image_ocr, ppt/upgrade-gate/check, website/publish, user/materials, user/visuals | ChatStreamRequestBody (conversation_id, message, tool_mode, scene, agent_type, attachments, model_code), ConversationList/Detail/History/SearchRes, PresetReplies, FollowUpQuestions, ModeSupportModelsResponse, AgnesImageOcrRequest, PptUpgradeGateCheckResponse |
+| `ArtifactApi` | `/api/v1/agnes/conversation /api/v1/file` | artifacts list/download/share, conversation/sandbox, conversation/uploads | GetArtifactShareReply, ImChatReloadDiskPayload |
+| `FileApi` | `/api/file /api/v1/file /api/v1/user` | presigned-url (file + avatar), multipart init/complete/abort, process/chat, process/avatar, aigc/user-assets, visuals/remove_watermark | PresignedUrlRequest/Response, AvatarPresignedUrl*, AssetItem, DeleteAssetsRequest |
+| `TemplateApi` | `/api/v1/template /api/aigc/template /api/group_stencil` | categories, list_by_category, list_by_ids, drafts CRUD, generate, upload, like, collect/uncollect/{id}, dislike/{id}, search, drafts/create+list, stencil_detail/{id} | GenerateTemplateResponse, CreateRoleDraft, CharacterItem/Detail, Pagination |
+| `GameApi` | `/api/v1/game /api/v1/im` | list, list-by-show-type, catalog/category-tree, games/{id}, info/search, game-name-map, user-assets, profile/{userId}+update, groups create/join/quit/info/active-by-game, help-answer, im/user-sig, im/group-share-codes/{shareCode}, im/groups/{id} DELETE | GameListResponse, GameCategoryTreeResponse, GameDetailItem, GameGroupsModel, GameHelpAnswerRequest, JoinGameByShareCodeRequest |
+| `NewsApi` | `/api/v1/news` | list_with_custom, detail, search, user-categories GET/PUT, record-read, read-stats, recent-reads, clear-reads, preference | NewsItem DTOs (news module models) |
+| `BillingApi` | `/api/v*/subscription /v2` | v2/plans, v2/credits-balance, credits-packs, credits-transactions, verify-payment, cancel, /v2/purchase | GooglePlan, PlanPrice, PricingPhase, CurrentSubscription, CreditsPacksBean, GoogleFuelPack, OneTimePurchaseOfferDetails, GooglePayRequest, (Cancel)Subscription*, PointsTransaction* |
+| `InvitationApi` | `/api/v1/invitation` | config, code, code/{code}/redeem, log, stat | Invitation DTOs |
+| `CommunityApi` | DTO-bound (paths via build config constants) | feed list/create/delete, emoji react/cancel, comments list/create/cancel | PostCommunityRequest/Item/Content, EmojiRequest, CommentRequest, CommunityListRequest |
+| `SysApi` | `/api/v1` | version/check, security/parameter, fcm/token, user/migration/waiting | FeatureConfig, GlobalErrorConfig, MigrationWaitingResponse |
 
-## CharacterApi
-- `POST /role/avatar` (`CreateRoleAvatarRequest`)
-- `POST /generate/candidate-images` · `/generate/personality-brief` · `/generate/opening-line`
-- `POST /role/draft` (`CreateRoleDraft`) · character detail/content fetch
-- Projects & assets: `ProjectsListResponse`, `DeleteProjectListResponse`, `DeleteAssetsRequest`,
-  `AvatarPresignedUrlRequest`
+## Streaming contract (`POST /api/v1/agnes/chat/stream`)
 
-## CommunityApi
-- `GET /community/list` (`CommunityListRequest` → `PostCommunityItem[]`)
-- `POST /community/post` (`PostCommunityRequest` with `PostCommunityContent` incl. media)
-- emoji reacts `EmojiRequest`/`CancelEmojiParam`, comments `CommentRequest`/`CommentListRequest`
+SSE/event-stream chunks, each a typed block (see README §7): `thinking`, `skill_load`,
+`tool_call` (with `tool_call_id`; type one of ToolCallEnum: LoadSkill, GenerateImage, WebSearch,
+ImageSearch, ReadFile, WriteFile, EditFile, ListFiles, Execute, WriteReport, QueryWeather,
+ProfileData, Other), `text`, `image`, `artifact`, `followups`, `error`, terminal `done`.
+Client must implement cancel/resume/hitl-resume with the same conversation + last event id.
 
-## GameApi
-- `GET /game/list` · `GET /game/category-tree` → `GameCategoryTreeResponse`
-- `GET /game/{id}` → `GameDetailItem`/`GameInfoResponse` · intro (`GameIntroParams`)
-- `POST /game/ugc` (`CreateUgcGameRequest`) · template generation (`GenerateTemplateResponse`)
-- Groups: `GameGroupsModel`, members, custom info; `POST /game/join-by-share-code`
-- `POST /game/help-answer` (`GameHelpAnswerRequest`)
+## Notable request specifics
 
-## TaskApi
-- Task list (typed by task enums), records (`RecordItem`), points transactions
-  (`PointsTransactionRequest/Response` with `PointsPagination`)
-
-## BillingApi
-- Plans: `GooglePlan`/`PlanPrice`/`PricingPhase` · `GET /billing/current`
-- `POST /billing/google-pay` (`GooglePayRequest`) · `POST /billing/cancel`
-- One-time offers: `OneTimePurchaseOfferDetails`, `CreditsPacksBean`, `GoogleFuelPack`
-- Economy: `ModelsAccess*`, `ModelsCost*`, `QuotaLog`, `PptUpgradeGateCheckResponse`
-
-## UploadApi / VisionApi
-- `POST /upload/presigned-url` → `PresignedUrlResponse` (multipart PUT to storage)
-- `AvatarPresignedUrl*`, `delete/confirm` asset endpoints
-- OCR: `AgnesImageOcrRequest` · element recognition `ImageElementRecognition*`
-
-## FiltersApi
-- Content-filter settings fetch/update (`feature_filters/network/request|response` DTOs),
-  cached locally in `AgnesFilterDatabase` (Room).
+- `tool_mode` observed hard value: `text_edit_image` (edit-image scene); other scenes are remote-configured (`scene`, `agent_type`).
+- Uploads: always two-step (presigned-url → PUT to storage → process/complete call).
+- `security/parameter`: client computes a signed parameter bundle (anti-abuse) attached to sensitive calls (login, purchase verify).
+- Pagination: `Pagination`/`PaginationInfo` (cursor style) on list endpoints.
