@@ -61,6 +61,7 @@ Core user experience:
 | Media | androidx.media3 (ExoPlayer) for audio/video; custom photo-picker module |
 | Auth | E-mail + password, phone, Google Sign-In via AndroidX **Credentials** / GMS auth |
 | Payments | Google **Play Billing** library (subscriptions + one-time products, incl. V2 proxy activities) |
+| AI backend | **Agnes AI gateway** (OpenAI-compatible, `apihub.agnes-ai.com`) — full integration spec in [docs/04-ai-gateway.md](docs/04-ai-gateway.md) |
 | Analytics / Attribution | Firebase Analytics (AppMeasurement), **Adjust** SDK, **AppsFlyer** SDK, Firebase Install Referrer |
 | App platform | Firebase Core/Sessions, Play Core, profileinstaller, androidx.startup, emoji2, window, credentials, datastore |
 
@@ -208,6 +209,15 @@ com.sobrr.agnes.feature_filters/*         → content filter settings: FilterApi
   provider, Credential-Manager metadata holder.
 * Deliver as **Android App Bundle** with split configs: `arm64_v8a`, `en`, `hdpi`
   (matches original packaging: base apk + config splits, 64-bit only).
+
+## 7.5 AI Provider (decided for this rebuild)
+
+All generative features (streaming chat, character avatars, personality/opening-line
+generation, vision) are served through the **Agnes AI gateway** (`https://apihub.agnes-ai.com/v1`,
+OpenAI-compatible) with models `agnes-2.5-flash`, `agnes-1.5-flash`, `agnes-image-2.1-flash`.
+The Android client never calls the gateway directly: your own backend proxies it, holds the
+API key and enforces the subscription gating described in §5.7 — exactly like the original
+app's client→backend split. Full mapping, wire formats and quotas: **docs/04-ai-gateway.md**.
 
 ## 8. Suggested Rebuild Order (for the coding agent)
 

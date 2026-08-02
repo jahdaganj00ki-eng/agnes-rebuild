@@ -13,6 +13,8 @@ Retrofit interfaces — names mirror the model DTOs in the package map:
 - `GET /config/login` → `LoginConfig` · `GET /config/feature` → `FeatureConfig`
 
 ## ChatApi
+> Every generative endpoint below is backed server-side by the **Agnes AI gateway** —
+> see the feature→model mapping in **docs/04-ai-gateway.md**.
 - Conversation CRUD: list / detail / history / search / delete
   (`ConversationList`, `ConversationDetail`, `ConversationHistory`, `ConversationSearchRes`)
 - `POST /chat/stream` (`ChatStreamRequestBody`) — **streamed** completion (chunked/SSE)
