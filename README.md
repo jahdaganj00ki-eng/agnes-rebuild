@@ -266,17 +266,24 @@ referral (invitation) center, account deletion. H5 pages: help/legal via WebView
 
 ## 8. AI provider: Agnes AI gateway (backend-side)
 
-* OpenAI-compatible: `POST {AGNES_BASE_URL}/chat/completions`, default
-  `AGNES_BASE_URL=https://apihub.agnes-ai.com/v1`; alternate `…agnes-ai.cn/v1` (network
-  failures only), China `api.agnes-ai.cn/v1`. Auth `Bearer $AGNES_API_KEY` **on the backend
-  only** (register key at `platform.agnes-ai.com`, docs `agnes-ai.com/doc/overview`).
-* Models: `agnes-2.5-flash` (chat/stream/tools/vision, ~512K ctx), `agnes-1.5-flash`
-  (cheap/titles), `agnes-image-2.1-flash` (`/v1/images/generations`; `2.0` alt),
-  `agnes-video-v2.0` (`/v1/videos`; poll `GET /agnesapi?video_id=<id>`).
-* Retry w/ backoff only on `408,429,500–504,520,522,524`. Rules in `docs/04-ai-gateway.md`;
-  never route-hop on 4xx; don't double-append `/v1`.
-* **Limits/quotas** (access types free/enterprise/token-plan; resolution-dependent image RPM;
-  video 500 s/day plan quotas; full tables + error-code→UX matrix): `docs/04-ai-gateway.md` §6.
+* OpenAI-compatible backend gateway. Default v1 base: `AGNES_BASE_URL=https://apihub.agnes-ai.com/v1`;
+  video polling root: `AGNES_POLL_BASE_URL=https://apihub.agnes-ai.com`. Auth is
+  `Authorization: Bearer $AGNES_API_KEY` **on the backend only**. Register keys at
+  `platform.agnes-ai.com`.
+* Correct endpoints with a `/v1` base are relative paths: `chat/completions`, `responses`,
+  `images/generations`, `videos`. Do **not** double-append `/v1`. Current video polling uses
+  `GET /agnesapi?video_id=<id>` on the root host; use `video_id`, not legacy `task_id`.
+* Models: `agnes-2.5-flash` (default chat/agents/tools/vision, 512K ctx / 65.5K output),
+  `agnes-2.0-flash` (legacy fallback, 256K / 64K), `agnes-1.5-flash` (fast titles/follow-ups),
+  `agnes-image-2.1-flash` (default image/edit), `agnes-image-2.0-flash` (fast image),
+  `agnes-video-v2.0` (async video).
+* App-facing model codes are mapped backend-side; see `backend-sidecar/model-routing.yaml` and
+  `docs/04-ai-gateway.md` §4.2. Keep provider model names/API keys out of Android.
+* Image requests should use tier sizes (`1K`/`2K`/`3K`/`4K`), `ratio`, and nested
+  `extra_body.response_format` — never top-level `response_format`.
+* Retry w/ backoff only on `408,429,500–504,520,522,524`; never route-hop on semantic 4xx.
+* Full limits/quotas, key-pool rules, request schemas and error-code→UX matrix live in
+  `docs/04-ai-gateway.md`. Backend sidecar skeleton: `backend-sidecar/`.
 
 ## 9. Local persistence & caches
 

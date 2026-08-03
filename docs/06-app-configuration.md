@@ -82,7 +82,7 @@ Weitere Familien:
 |---|---|
 | Netzwerk | 60/60–120/120 s Timeouts · Bearer-Interceptor · `x-dev-lane`-Env · OAuth-Refresh via `/refresh-token` |
 | Streaming | SSE ≥120 s fähig, Blöcke thinking/skill_load/tool_call/text/image/artifact/followups/error/done |
-| Modelle (Backend) | Mapping per `mode_support_models` kuratieren; Codes/Metadaten generisch; Anbieterseite `agnes-2.5/2.0/1.5-flash`, `agnes-image-2.1/2.0-flash`, `agnes-video-v2.0` |
+| Modelle (Backend) | Mapping per `mode_support_models` kuratieren; App-Codes → Provider in `backend-sidecar/model-routing.yaml`; Anbieterseite `agnes-2.5-flash` Default, `agnes-1.5-flash` Fast/Titel, `agnes-2.0-flash` Legacy, `agnes-image-2.1-flash` Default/Edit, `agnes-image-2.0-flash` Fast, `agnes-video-v2.0` |
 | SDK-Äquivalente | Firebase (FCM+Analytics) · Tencent-IM-Naht via Interface + `im/user-sig` · Attribution: Singular-Schnittstelle optional hinter Flag |
 | Feature-Defaults | TTS-Toggle default ON · Teen-Modus mit Eltern-PIN · Version-Check-Banner · Migration-Banner · FeatureConfig {category,mode,type} · LoginConfig {default_page} |
 | Unverzichtbare Pflicht-Endpunkte | README §5 vollständig; Priorisierung: chat/stream-Set > auth/user > file > billing-v2 > im |

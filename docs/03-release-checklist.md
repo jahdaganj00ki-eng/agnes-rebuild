@@ -1,6 +1,6 @@
 # Release / Build Configuration Checklist
 
-- `applicationId` `com.sobrr.agnes`, `minSdk 26`, `targetSdk 34+` (original targets 36),
+- `applicationId` `com.sobrr.agnes`, `minSdk 26`, `compileSdk 36`, `targetSdk 36`,
   `versionCode` scheme `3.00.0xx` → e.g. `3000061` = `3.0.61`.
 - Product flavors per environment (dev / test / preview / prod) injecting `BASE_URL` and
   `H5_URL` (values in README §2) + per-flavor `google-services.json`.

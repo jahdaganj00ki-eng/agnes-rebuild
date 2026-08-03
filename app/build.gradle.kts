@@ -5,11 +5,11 @@ plugins {
 }
 android {
     namespace = "com.agnes.bundle_agnes"
-    compileSdk = 34
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.sobrr.agnes"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 3000061
         versionName = "3.0.61"
         // Environments (README §2): dev / test / preview / prod → BASE_URL + H5_URL build fields

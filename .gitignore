@@ -3,3 +3,6 @@ build/
 *.iml
 .idea/
 local.properties
+.env
+.env.*
+!.env.example

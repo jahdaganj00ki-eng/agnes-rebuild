@@ -32,6 +32,9 @@ Client must implement cancel/resume/hitl-resume with the same conversation + las
 ## Notable request specifics
 
 - `tool_mode` observed hard value: `text_edit_image` (edit-image scene); other scenes are remote-configured (`scene`, `agent_type`).
-- Uploads: always two-step (presigned-url → PUT to storage → process/complete call).
+- `model_code` is app-facing only. Resolve it backend-side via `backend-sidecar/model-routing.yaml` before calling the Agnes gateway.
+- Uploads: always two-step (presigned-url → PUT to storage → process/complete call). For vision/image-edit, pass the resulting public or signed image URL to the backend-sidecar.
+- Image generation/edit requests should use `size` tiers (`1K`/`2K`/`3K`/`4K`), `ratio`, optional `image: string[]`, and nested `extra_body.response_format`.
+- Video task polling must use `video_id` with `/agnesapi?video_id=...`; do not poll current flows with legacy `task_id`.
 - `security/parameter`: client computes a signed parameter bundle (anti-abuse) attached to sensitive calls (login, purchase verify).
 - Pagination: `Pagination`/`PaginationInfo` (cursor style) on list endpoints.

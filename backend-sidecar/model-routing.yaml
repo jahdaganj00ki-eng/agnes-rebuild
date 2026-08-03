@@ -1,0 +1,65 @@
+# App-facing model_code -> Agnes provider model mapping.
+# The Android client should consume app-facing codes from /api/v1/agnes/mode_support_models.
+# Provider model strings and routing policy remain backend-owned.
+
+models:
+  chat_default:
+    provider_model: agnes-2.5-flash
+    model_type: chat
+    subscription_level: free
+    description: Main chat/agent/tool/vision model.
+  agent_default:
+    provider_model: agnes-2.5-flash
+    model_type: agent
+    subscription_level: free
+    description: Default agent runtime model.
+  chat_fast:
+    provider_model: agnes-1.5-flash
+    model_type: chat
+    subscription_level: free
+    description: Low-latency simple chat.
+  title_summary:
+    provider_model: agnes-1.5-flash
+    model_type: utility
+    subscription_level: free
+    description: Conversation title generation.
+  followups:
+    provider_model: agnes-1.5-flash
+    model_type: utility
+    subscription_level: free
+    description: Suggested follow-up questions.
+  chat_legacy:
+    provider_model: agnes-2.0-flash
+    model_type: chat
+    subscription_level: free
+    description: Compatibility/fallback model.
+  vision_default:
+    provider_model: agnes-2.5-flash
+    model_type: vision
+    subscription_level: free
+    description: Image URL input and OCR-adjacent tasks.
+  agnes-image:
+    provider_model: agnes-image-2.1-flash
+    model_type: image
+    subscription_level: free
+    description: Existing app fallback alias mapped to current image default.
+  image_default:
+    provider_model: agnes-image-2.1-flash
+    model_type: image
+    subscription_level: free
+    description: High-detail text-to-image generation.
+  image_edit:
+    provider_model: agnes-image-2.1-flash
+    model_type: image
+    subscription_level: plus
+    description: Reference-image editing and multi-image composition.
+  image_fast:
+    provider_model: agnes-image-2.0-flash
+    model_type: image
+    subscription_level: free
+    description: Fast text-to-image fallback.
+  video_default:
+    provider_model: agnes-video-v2.0
+    model_type: video
+    subscription_level: plus
+    description: Async text/image/keyframe-to-video.
