@@ -1,0 +1,78 @@
+# Model Routing Configuration
+# Maps app model_code to Agnes gateway models
+
+# Chat/Stream/Regenerate/HITL/Tools/Vision
+chat_stream: "agnes-2.5-flash"
+chat_regenerate: "agnes-2.5-flash"
+chat_hitl: "agnes-2.5-flash"
+tools_vision: "agnes-2.5-flash"
+
+# Title summary, follow-ups
+title_summary: "agnes-1.5-flash"
+follow_ups: "agnes-1.5-flash"
+
+# Persona, opening line, game help
+persona: "agnes-2.0-flash"
+opening_line: "agnes-2.0-flash"
+game_help: "agnes-2.0-flash"
+
+# Image OCR / Vision
+image_ocr: "agnes-2.5-flash"
+
+# Image Generation/Editing
+image_generation: "agnes-image-2.1-flash"
+image_edit: "agnes-image-2.1-flash"
+image_fallback: "agnes-image-2.0-flash"
+
+# Video
+video_generation: "agnes-video-v2.0"
+
+# Gateway URLs
+gateway_base_url: "https://apihub.agnes-ai.com/v1"
+gateway_poll_base_url: "https://apihub.agnes-ai.com"
+gateway_alt_base_url: "https://apihub.agnes-ai.cn/v1"
+gateway_cn_base_url: "https://api.agnes-ai.cn/v1"
+
+# Retry Configuration
+retry:
+  codes: [408, 429, 500, 502, 503, 504, 520, 522, 524]
+  max_attempts: 3
+  base_delay_ms: 1000
+  max_delay_ms: 30000
+  jitter: true
+
+# Quota Configuration (per access type)
+quota:
+  free:
+    text_rpm: 20
+    image_rpm:
+      "1K": 20
+      "2K": 10
+      "3K": 1
+      "4K": 1
+    video_rpm: 1
+    video_daily_seconds: 500
+  enterprise:
+    text_rpm: 40
+    image_rpm:
+      "1K": 40
+      "2K": 20
+      "3K": 1
+      "4K": 1
+    video_rpm: 2
+    video_daily_seconds: 500
+  token_plan_starter:
+    text_5h: 1500
+    text_weekly: 15000
+    image_daily: 4000
+    video_daily_seconds: 500
+  token_plan_plus:
+    text_5h: 7500
+    text_weekly: 75000
+    image_daily: 4000
+    video_daily_seconds: 500
+  token_plan_pro:
+    text_5h: 30000
+    text_weekly: 300000
+    image_daily: 4000
+    video_daily_seconds: 500

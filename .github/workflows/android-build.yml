@@ -1,0 +1,130 @@
+name: Android Build & Sidecar Test
+
+on:
+  push:
+    branches: [ main, master, build ]
+  pull_request:
+    branches: [ main, master, build ]
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
+  KOTLIN_VERSION: "1.9.20"
+  AGP_VERSION: "8.3.2"
+
+jobs:
+  # Android App Build
+  android-build:
+    name: Android App (compileSdk 34)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools-version: '34.0.0'
+          cmdline-tools-version: 'latest'
+          ndk-version: 'r26c'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK (dev flavor)
+        run: ./gradlew :app:assembleDevDebug --no-daemon --stacktrace
+
+      - name: Build Release AAB (prod flavor)
+        run: ./gradlew :app:bundleProdRelease --no-daemon --stacktrace
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-dev-debug-apk
+          path: app/build/outputs/apk/dev/debug/*.apk
+          retention-days: 7
+
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-prod-release-aab
+          path: app/build/outputs/bundle/prod/release/*.aab
+          retention-days: 7
+
+      - name: Upload build reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-reports
+          path: |
+            app/build/reports/
+            **/build/reports/
+          retention-days: 7
+
+  # Sidecar Build & Test
+  sidecar-test:
+    name: Backend Sidecar (Ktor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Sidecar
+        run: ./gradlew :sidecar:build --no-daemon --stacktrace
+
+      - name: Run Sidecar Tests
+        run: ./gradlew :sidecar:test --no-daemon --stacktrace
+
+      - name: Upload Sidecar Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sidecar-test-results
+          path: backend-sidecar/build/reports/tests/
+          retention-days: 7
+
+  # Combined verification
+  verify:
+    name: Verify All
+    runs-on: ubuntu-latest
+    needs: [android-build, sidecar-test]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: |
+          echo "❌ Some jobs failed"
+          exit 1
+      - name: All checks passed
+        run: echo "✅ All builds and tests passed"
